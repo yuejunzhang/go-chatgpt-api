@@ -55,6 +55,7 @@ var (
 	ArkoseClient tls_client.HttpClient
 	PUID         string
 	ProxyUrl     string
+	IMITATE_accessToken string
 )
 
 type LoginInfo struct {
@@ -197,8 +198,14 @@ func setupPUID() {
 
 				PUID = puid
 
+				// store IMITATE_accessToken
+				IMITATE_accessToken = accessToken
+
 				time.Sleep(time.Hour * 24 * 7)
 			}
 		}()
+	} else {
+		PUID = os.Getenv("PUID")
+		IMITATE_accessToken = os.Getenv("IMITATE_ACCESS_TOKEN")
 	}
 }

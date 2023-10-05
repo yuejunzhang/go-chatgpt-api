@@ -42,13 +42,29 @@ func CreateChatCompletions(c *gin.Context) {
 	}
 
 	authHeader := c.GetHeader(api.AuthorizationHeader)
-	token := os.Getenv("IMITATE_ACCESS_TOKEN")
+	imitate_api_key := os.Getenv("IMITATE_API_KEY")
 	if authHeader != "" {
 		customAccessToken := strings.Replace(authHeader, "Bearer ", "", 1)
-		// Check if customAccessToken starts with sk-
+		// Check if customAccessToken starts with eyJhbGciOiJSUzI1NiI
 		if strings.HasPrefix(customAccessToken, "eyJhbGciOiJSUzI1NiI") {
 			token = customAccessToken
+		// use defiend access token if the provided api key is equal to "IMITATE_API_KEY"
+		} else if imitate_api_key != "" && customAccessToken == imitate_api_key {
+			token = os.Getenv("IMITATE_ACCESS_TOKEN")
+			if token == "" {
+				token = chatgpt.IMITATE_accessToken
+			}
 		}
+	}
+
+	if token == "" {
+		c.JSON(400, gin.H{"error": gin.H{
+			"message": "API KEY is missing or invalid",
+			"type":    "invalid_request_error",
+			"param":   nil,
+			"code":    "400",
+		}})
+		return
 	}
 
 	// 将聊天请求转换为ChatGPT请求。
