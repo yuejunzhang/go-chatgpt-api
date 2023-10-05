@@ -22,6 +22,7 @@ import (
 
 var (
 	reg *regexp.Regexp
+	token string
 )
 
 func init() {
@@ -52,7 +53,7 @@ func CreateChatCompletions(c *gin.Context) {
 		} else if imitate_api_key != "" && customAccessToken == imitate_api_key {
 			token = os.Getenv("IMITATE_ACCESS_TOKEN")
 			if token == "" {
-				token = chatgpt.IMITATE_accessToken
+				token = api.IMITATE_accessToken
 			}
 		}
 	}
