@@ -271,16 +271,17 @@ func RefreshAccessToken(refreshToken string) string {
 	}
 	// Check if access token in data
 	if _, ok := result["access_token"]; !ok {
-		result_string := logger.Error(fmt.Sprintf("missing access token: %v", result))
+		logger.Error(fmt.Sprintf("missing access token: %v", result))
 		return ""
 	}
 	return result["access_token"].(string)
 }
 
-func GetPUID() (string, *Error) {
+func GetPUID() string {
 	// Check if user has access token
 	if IMITATE_accessToken == "" {
-		return "", NewError("get_puid", 0, "Missing access token")
+		logger.Error("GetPUID: Missing access token")
+		return ""
 	}
 	// Make request to https://chat.openai.com/backend-api/models
 	req, _ := http.NewRequest("GET", "https://chat.openai.com/backend-api/models?history_and_training_disabled=false", nil)
@@ -288,20 +289,23 @@ func GetPUID() (string, *Error) {
 	req.Header.Add("Authorization", "Bearer "+IMITATE_accessToken)
 	req.Header.Add("User-Agent", UserAgent)
 
-	resp, err := userLogin.client.Do(req)
+	resp, err := NewHttpClient().Do(req)
 	if err != nil {
-		return "", NewError("get_puid", 0, "Failed to make request")
+		logger.Error("GetPUID: Missing access token")
+		return ""
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", NewError("get_puid", resp.StatusCode, "Failed to make request")
+		logger.Error(fmt.Sprintf("GetPUID: Server responded with status code: %d", resp.StatusCode))
+		return ""
 	}
 	// Find `_puid` cookie in response
 	for _, cookie := range resp.Cookies() {
 		if cookie.Name == "_puid" {
-			return cookie.Value, nil
+			return cookie.Value
 		}
 	}
 	// If cookie not found, return error
-	return "", NewError("get_puid", 0, "PUID cookie not found")
+	logger.Error("GetPUID: PUID cookie not found")
+	return ""
 }
