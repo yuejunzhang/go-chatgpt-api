@@ -216,7 +216,7 @@ func setupPUID() {
 					logger.Info(fmt.Sprintf("accessToken is updated"))
 				}				
 
-				puid := GetPUID()
+				puid := GetPUID(accessToken)
 				if puid == "" {
 					logger.Error(refreshPuidErrorMessage)
 					return
@@ -277,16 +277,16 @@ func RefreshAccessToken(refreshToken string) string {
 	return result["access_token"].(string)
 }
 
-func GetPUID() string {
+func GetPUID(accessToken string) string {
 	// Check if user has access token
-	if IMITATE_accessToken == "" {
+	if accessToken == "" {
 		logger.Error("GetPUID: Missing access token")
 		return ""
 	}
 	// Make request to https://chat.openai.com/backend-api/models
 	req, _ := http.NewRequest("GET", "https://chat.openai.com/backend-api/models?history_and_training_disabled=false", nil)
 	// Add headers
-	req.Header.Add("Authorization", "Bearer "+IMITATE_accessToken)
+	req.Header.Add("Authorization", "Bearer "+accessToken)
 	req.Header.Add("User-Agent", UserAgent)
 
 	resp, err := NewHttpClient().Do(req)
