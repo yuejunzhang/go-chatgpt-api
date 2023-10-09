@@ -218,7 +218,7 @@ func setupPUID() {
 
 				puid := GetPUID()
 				if puid == "" {
-					logger.Error(fmt.Sprintf(refreshPuidErrorMessage, err))
+					logger.Error(refreshPuidErrorMessage)
 					return
 				} else {
 					logger.Info(fmt.Sprintf("PUID is updated"))
