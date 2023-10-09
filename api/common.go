@@ -216,8 +216,8 @@ func setupPUID() {
 					logger.Info(fmt.Sprintf("accessToken is updated"))
 				}				
 
-				puid, err := GetPUID()
-				if err != nil {
+				puid := GetPUID()
+				if puid == "" {
 					logger.Error(fmt.Sprintf(refreshPuidErrorMessage, err))
 					return
 				} else {
