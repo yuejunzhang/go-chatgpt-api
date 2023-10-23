@@ -175,6 +175,7 @@ func GetArkoseToken() (string, error) {
 func setupPUID() {
 	username := os.Getenv("OPENAI_EMAIL")
 	password := os.Getenv("OPENAI_PASSWORD")
+	refreshtoken := os.Getenv("OPENAI_REFRESH_TOKEN")
 	if username != "" && password != "" {
 		go func() {
 			for {
@@ -204,8 +205,107 @@ func setupPUID() {
 				time.Sleep(time.Hour * 24 * 7)
 			}
 		}()
+	} else if refreshtoken != "" {
+		go func() {
+			for {
+				accessToken := RefreshAccessToken(refreshtoken)
+				if accessToken == "" {
+					logger.Error(refreshPuidErrorMessage)
+					return
+				} else {
+					logger.Info(fmt.Sprintf("accessToken is updated"))
+				}				
+
+				puid := GetPUID(accessToken)
+				if puid == "" {
+					logger.Error(refreshPuidErrorMessage)
+					return
+				} else {
+					logger.Info(fmt.Sprintf("PUID is updated"))
+				}				
+
+				PUID = puid
+
+				// store IMITATE_accessToken
+				IMITATE_accessToken = accessToken
+
+				time.Sleep(time.Hour * 24 * 7)
+			}
+		}()
 	} else {
 		PUID = os.Getenv("PUID")
 		IMITATE_accessToken = os.Getenv("IMITATE_ACCESS_TOKEN")
 	}
+}
+
+func RefreshAccessToken(refreshToken string) string {
+	data := map[string]interface{}{
+		"redirect_uri":  "com.openai.chat://auth0.openai.com/ios/com.openai.chat/callback"		,
+		"grant_type":    "refresh_token",
+		"client_id":     "pdlLIX2Y72MIl2rhLhTE9VV9bN905kBh",
+		"refresh_token": refreshToken,
+	}
+	jsonData, err := json.Marshal(data)
+
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to marshal data: %v", err))
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "https://auth0.openai.com/oauth/token", bytes.NewBuffer(jsonData))
+	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := NewHttpClient().Do(req)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to refresh token: %v", err))
+		return ""
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		logger.Error(fmt.Sprintf("Server responded with status code: %d", resp.StatusCode))
+	}
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		logger.Error(fmt.Sprintf("Failed to decode json: %v", err))
+		return ""
+	}
+	// Check if access token in data
+	if _, ok := result["access_token"]; !ok {
+		logger.Error(fmt.Sprintf("missing access token: %v", result))
+		return ""
+	}
+	return result["access_token"].(string)
+}
+
+func GetPUID(accessToken string) string {
+	// Check if user has access token
+	if accessToken == "" {
+		logger.Error("GetPUID: Missing access token")
+		return ""
+	}
+	// Make request to https://chat.openai.com/backend-api/models
+	req, _ := http.NewRequest("GET", "https://chat.openai.com/backend-api/models?history_and_training_disabled=false", nil)
+	// Add headers
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+	req.Header.Add("User-Agent", UserAgent)
+
+	resp, err := NewHttpClient().Do(req)
+	if err != nil {
+		logger.Error("GetPUID: Missing access token")
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		logger.Error(fmt.Sprintf("GetPUID: Server responded with status code: %d", resp.StatusCode))
+		return ""
+	}
+	// Find `_puid` cookie in response
+	for _, cookie := range resp.Cookies() {
+		if cookie.Name == "_puid" {
+			return cookie.Value
+		}
+	}
+	// If cookie not found, return error
+	logger.Error("GetPUID: PUID cookie not found")
+	return ""
 }
