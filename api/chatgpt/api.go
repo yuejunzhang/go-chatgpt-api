@@ -17,6 +17,7 @@ import (
 
 func CreateConversation(c *gin.Context) {
 	var request CreateConversationRequest
+	var api_version int
 	if err := c.BindJSON(&request); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, api.ReturnMessage(parseJsonErrorMessage))
 		return
@@ -39,8 +40,14 @@ func CreateConversation(c *gin.Context) {
 		request.Messages[0] = message
 	}
 
-	if strings.HasPrefix(request.Model, gpt4Model) && request.ArkoseToken == "" {
-		arkoseToken, err := api.GetArkoseToken()
+	if strings.HasPrefix(request.Model, gpt4Model) {
+		api_version = 4
+	} else {
+		api_version = 3
+	}
+
+	if request.ArkoseToken == "" {
+		arkoseToken, err := api.GetArkoseToken(api_version)
 		if err != nil || arkoseToken == "" {
 			c.AbortWithStatusJSON(http.StatusForbidden, api.ReturnMessage(err.Error()))
 			return

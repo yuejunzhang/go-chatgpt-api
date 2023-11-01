@@ -11,7 +11,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/linweiyuan/go-logger v0.0.0-20230709142852-da1f090a7d4c
 	github.com/xqdoo00o/OpenAIAuth v0.0.0-20230928031215-356afd0d7a6b
-	github.com/xqdoo00o/funcaptcha v0.0.0-20231022115145-db16e7c3d30c
+	github.com/xqdoo00o/funcaptcha v0.0.0-20231030092246-861a61b162a5
 )
 
 require (
