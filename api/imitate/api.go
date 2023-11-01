@@ -146,21 +146,23 @@ func generateId() string {
 func convertAPIRequest(apiRequest APIRequest) (chatgpt.CreateConversationRequest, string) {
 	chatgptRequest := NewChatGPTRequest()
 
+	var api_version int
 	var model = "gpt-3.5-turbo-0613"
 
 	if strings.HasPrefix(apiRequest.Model, "gpt-3.5") {
+		api_version = 3
 		chatgptRequest.Model = "text-davinci-002-render-sha"
-	}
-
-	if strings.HasPrefix(apiRequest.Model, "gpt-4") {
-		arkoseToken, err := api.GetArkoseToken()
-		if err == nil {
-			chatgptRequest.ArkoseToken = arkoseToken
-		} else {
-			fmt.Println("Error getting Arkose token: ", err)
-		}
+	} else if strings.HasPrefix(apiRequest.Model, "gpt-4") {
+		api_version = 4
 		chatgptRequest.Model = apiRequest.Model
 		model = "gpt-4-0613"
+	}
+	
+	arkoseToken, err := api.GetArkoseToken(api_version)
+	if err == nil {
+		chatgptRequest.ArkoseToken = arkoseToken
+	} else {
+		fmt.Println("Error getting Arkose token: ", err)
 	}
 
 	if apiRequest.PluginIDs != nil {
@@ -179,12 +181,12 @@ func convertAPIRequest(apiRequest APIRequest) (chatgpt.CreateConversationRequest
 }
 
 func NewChatGPTRequest() chatgpt.CreateConversationRequest {
-	enableHistory := os.Getenv("ENABLE_HISTORY") == ""
+	disable_history := os.Getenv("ENABLE_HISTORY") != "true"
 	return chatgpt.CreateConversationRequest{
 		Action:                     "next",
 		ParentMessageID:            uuid.NewString(),
 		Model:                      "text-davinci-002-render-sha",
-		HistoryAndTrainingDisabled: !enableHistory,
+		HistoryAndTrainingDisabled: disable_history,
 	}
 }
 
