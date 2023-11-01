@@ -179,12 +179,12 @@ func convertAPIRequest(apiRequest APIRequest) (chatgpt.CreateConversationRequest
 }
 
 func NewChatGPTRequest() chatgpt.CreateConversationRequest {
-	enableHistory := os.Getenv("ENABLE_HISTORY") == ""
+	disable_history := os.Getenv("ENABLE_HISTORY") != "true"
 	return chatgpt.CreateConversationRequest{
 		Action:                     "next",
 		ParentMessageID:            uuid.NewString(),
 		Model:                      "text-davinci-002-render-sha",
-		HistoryAndTrainingDisabled: !enableHistory,
+		HistoryAndTrainingDisabled: disable_history,
 	}
 }
 
