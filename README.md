@@ -1,7 +1,8 @@
 # go-chatgpt-api
 
-## 此为个人维护的魔改版，相比原版，有以下改动/区别
+# 此为个人维护的魔改版，相比原版，有以下改动/区别
 
+## 自动获取内部和更新的 Access token 和 PUID
 配置环境变量
  - OPENAI_EMAIL
  - OPENAI_PASSWORD
@@ -10,13 +11,19 @@
 
  - OPENAI_REFRESH_TOKEN
 
-自动生成和更新内部 Access tokens （用于imitate）和 PUID（仅PLUS账户）
+自动生成和更新内部 Access token （用于imitate）和 PUID（仅PLUS账户）
 
 推荐使用 OPENAI_REFRESH_TOKEN 方式， 使用邮箱和用户名的方式能否成功取决于抓取的har登陆时能否不出码
 
-集成最新 https://github.com/xqdoo00o/funcaptcha 支持harPool, 映射目录 /app/harPool
-har获取方式 https://github.com/xqdoo00o/ChatGPT-to-API/blob/master/README_ZH.md#har%E6%96%87%E4%BB%B6%E6%B1%A0
+## 如何使用内部的 Access token ？
+使用环境变量
+ - IMITATE_API_KEY 虚拟一个api key， 当client发送的api key匹配时， 使用内部的 access token 转 API
 
+集成最新 [funcaptcha](https://github.com/xqdoo00o/funcaptcha) 支持harPool, 映射目录 /app/harPool
+
+[har获取方式](https://github.com/xqdoo00o/ChatGPT-to-API/blob/master/README_ZH.md#har%E6%96%87%E4%BB%B6%E6%B1%A0)
+
+---
 
 ## 一个尝试绕过 `Cloudflare` 来使用 `ChatGPT` 接口的程序
 
