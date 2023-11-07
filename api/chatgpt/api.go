@@ -45,7 +45,7 @@ func CreateConversation(c *gin.Context) {
 
 	if strings.HasPrefix(request.Model, gpt4Model) {
 		api_version = 4
-	} else if enable_arkose_3 != "" {
+	} else if enable_arkose_3 == "true" {
 		api_version = 3
 	}
 

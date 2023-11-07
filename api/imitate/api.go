@@ -151,7 +151,7 @@ func convertAPIRequest(apiRequest APIRequest) (chatgpt.CreateConversationRequest
 	var model = "gpt-3.5-turbo-0613"
 
 	if strings.HasPrefix(apiRequest.Model, "gpt-3.5") {
-		if enable_arkose_3 != "" {
+		if enable_arkose_3 == "true" {
 			api_version = 3
 		}		
 		chatgptRequest.Model = "text-davinci-002-render-sha"

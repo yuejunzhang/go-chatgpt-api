@@ -25,7 +25,7 @@
 
 ## 如何为3.5开启 ARKOSE TOKEN ？
 使用环境变量
- - ENABLE_ARKOSE_3
+ - ENABLE_ARKOSE_3=true
 
 ---
 
