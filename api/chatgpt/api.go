@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	http "github.com/bogdanfinn/fhttp"
@@ -18,7 +19,7 @@ import (
 func CreateConversation(c *gin.Context) {
 	var request CreateConversationRequest
 	var api_version int
-	ENABLE_ARKOSE_3 := os.Getenv("ENABLE_ARKOSE_3")
+	enable_arkose_3 := os.Getenv("ENABLE_ARKOSE_3")
 
 	if err := c.BindJSON(&request); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, api.ReturnMessage(parseJsonErrorMessage))
@@ -44,7 +45,7 @@ func CreateConversation(c *gin.Context) {
 
 	if strings.HasPrefix(request.Model, gpt4Model) {
 		api_version = 4
-	} else if ENABLE_ARKOSE_3 != "" {
+	} else if enable_arkose_3 != "" {
 		api_version = 3
 	}
 
