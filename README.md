@@ -23,6 +23,10 @@
 
 [har获取方式](https://github.com/xqdoo00o/ChatGPT-to-API/blob/master/README_ZH.md#har%E6%96%87%E4%BB%B6%E6%B1%A0)
 
+## 如何为3.5开启 ARKOSE TOKEN ？
+使用环境变量
+ - ENABLE_ARKOSE_3
+
 ---
 
 ## 一个尝试绕过 `Cloudflare` 来使用 `ChatGPT` 接口的程序
