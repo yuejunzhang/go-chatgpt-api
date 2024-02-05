@@ -166,13 +166,13 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 		}
 		wssRequest.Header.Add("Sec-WebSocket-Protocol", wssSubProtocols[0])
 
-		conn, wssResp, err := dialer.Dial(wssUrl, http2.Header(wssRequest.Header))
+		conn, _, err := dialer.Dial(wssUrl, http2.Header(wssRequest.Header))
 		if err != nil {
 			log.Fatal("Error dialing:", err)
 		}
 		defer conn.Close()
 
-		log.Printf("WebSocket handshake completed with status code: %d", wssResp.StatusCode)
+		//log.Printf("WebSocket handshake completed with status code: %d", wssResp.StatusCode)
 
 		recvMsgCount := 0
 
