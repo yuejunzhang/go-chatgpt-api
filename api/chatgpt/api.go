@@ -172,7 +172,7 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 		}
 		defer conn.Close()
 
-		log.Printf("WebSocket handshake completed with status code: %d", wssResp.StatusCode)
+		//log.Printf("WebSocket handshake completed with status code: %d", wssResp.StatusCode)
 
 		recvMsgCount := 0
 
@@ -186,7 +186,7 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 			// Handle different types of messages (Text, Binary, etc.)
 			switch messageType {
 			case websocket.TextMessage:
-				log.Printf("Received Text Message: %s", message)
+				//log.Printf("Received Text Message: %s", message)
 				var wssConversationResponse WSSConversationResponse
 				json.Unmarshal(message, &wssConversationResponse)
 
@@ -223,9 +223,9 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 					conn.WriteMessage(websocket.TextMessage, sequenceMsgStr)
 				}
 			case websocket.BinaryMessage:
-				log.Printf("Received Binary Message: %d bytes", len(message))
+				//log.Printf("Received Binary Message: %d bytes", len(message))
 			default:
-				log.Printf("Received Other Message Type: %d", messageType)
+				//log.Printf("Received Other Message Type: %d", messageType)
 			}
 		}
 	} else {
