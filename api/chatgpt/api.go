@@ -172,7 +172,7 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 		}
 		defer conn.Close()
 
-		//log.Printf("WebSocket handshake completed with status code: %d", wssResp.StatusCode)
+		log.Printf("WebSocket handshake completed with status code: %d", wssResp.StatusCode)
 
 		recvMsgCount := 0
 
