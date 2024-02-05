@@ -151,11 +151,11 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 		json.Unmarshal([]byte(readStr), &createConversationWssResponse)
 		wssUrl := createConversationWssResponse.WssUrl
 
-		fmt.Println(wssUrl)
+		//fmt.Println(wssUrl)
 
-		wssu, err := url.Parse(wssUrl)
+		//wssu, err := url.Parse(wssUrl)
 
-		fmt.Println(wssu.RawQuery)
+		//fmt.Println(wssu.RawQuery)
 
 		wssSubProtocols := []string{"json.reliable.webpubsub.azure.v1"}
 
