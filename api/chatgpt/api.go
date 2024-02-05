@@ -75,6 +75,7 @@ func CreateConversation(c *gin.Context) {
 func sendConversationRequest(c *gin.Context, request CreateConversationRequest) (*http.Response, bool) {
 	jsonBytes, _ := json.Marshal(request)
 	req, _ := http.NewRequest(http.MethodPost, api.ChatGPTApiUrlPrefix+"/backend-api/conversation", bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", api.UserAgent)
 	req.Header.Set(api.AuthorizationHeader, api.GetAccessToken(c))
 	req.Header.Set("Accept", "text/event-stream")
