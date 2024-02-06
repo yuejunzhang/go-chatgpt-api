@@ -6,7 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"io"
+	"log"
+	http2 "net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -302,7 +305,7 @@ func Handler(c *gin.Context, response *http.Response, stream bool, id string, mo
 				bodyByte, err := base64.StdEncoding.DecodeString(base64Body)
 
 				if err != nil {
-					return
+					return "", nil
 				}
 				body := string(bodyByte[:])
 
