@@ -4,6 +4,7 @@
 
 ## 20240206 imitate 支持 WSS
 ## 20240205 尝试支持官网改动之后的WSS协议 （imitate未支持）
+参考 [32c0cf4b709ad3a7540f4a8ab0f7200c2ba92a9f](https://github.com/linweiyuan/go-chatgpt-api/commit/32c0cf4b709ad3a7540f4a8ab0f7200c2ba92a9f)
 
 ## 自动获取内部和更新的 Access token 和 PUID
 配置环境变量
