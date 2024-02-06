@@ -1,4 +1,4 @@
-module github.com/linweiyuan/go-chatgpt-api
+module github.com/maxduke/go-chatgpt-api
 
 go 1.21
 
@@ -10,6 +10,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/joho/godotenv v1.5.1
+	github.com/linweiyuan/go-chatgpt-api v0.0.0-20240203111407-92882ef13a83
 	github.com/linweiyuan/go-logger v0.0.0-20230709142852-da1f090a7d4c
 	github.com/xqdoo00o/OpenAIAuth v0.0.0-20240119133540-9d0c14e31678
 	github.com/xqdoo00o/funcaptcha v0.0.0-20240119125440-13927300884f
@@ -32,13 +33,14 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.17.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/quic-go/quic-go v0.41.0 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tam7t/hpkp v0.0.0-20160821193359-2b70b4024ed5 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
