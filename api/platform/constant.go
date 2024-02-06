@@ -1,6 +1,6 @@
 package platform
 
-import "github.com/linweiyuan/go-chatgpt-api/api"
+import "github.com/maxduke/go-chatgpt-api/api"
 
 const (
 	apiCreateChatCompletions = api.PlatformApiUrlPrefix + "/v1/chat/completions"

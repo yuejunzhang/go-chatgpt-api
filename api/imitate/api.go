@@ -6,7 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"io"
+	"log"
+	http2 "net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -15,8 +18,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/linweiyuan/go-chatgpt-api/api"
-	"github.com/linweiyuan/go-chatgpt-api/api/chatgpt"
+	"github.com/maxduke/go-chatgpt-api/api"
+	"github.com/maxduke/go-chatgpt-api/api/chatgpt"
 	"github.com/linweiyuan/go-logger/logger"
 )
 
@@ -198,6 +201,7 @@ func NewChatGPTRequest() chatgpt.CreateConversationRequest {
 func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationRequest, accessToken string) (*http.Response, bool) {
 	jsonBytes, _ := json.Marshal(request)
 	req, _ := http.NewRequest(http.MethodPost, api.ChatGPTApiUrlPrefix+"/backend-api/conversation", bytes.NewBuffer(jsonBytes))
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", api.UserAgent)
 	req.Header.Set(api.AuthorizationHeader, accessToken)
 	req.Header.Set("Accept", "text/event-stream")
@@ -242,71 +246,205 @@ func Handler(c *gin.Context, response *http.Response, stream bool, id string, mo
 	var previousText StringStruct
 	var originalResponse ChatGPTResponse
 	var isRole = true
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return "", nil
-		}
-		if len(line) < 6 {
-			continue
-		}
-		// Remove "data: " from the beginning of the line
-		line = line[6:]
-		// Check if line starts with [DONE]
-		if !strings.HasPrefix(line, "[DONE]") {
-			// Parse the line as JSON
 
-			err = json.Unmarshal([]byte(line), &originalResponse)
+	readStr, _ := reader.ReadString(' ')
+
+	if strings.Contains(readStr, "\"wss_url\"") {
+		var createConversationWssResponse chatgpt.CreateConversationWSSResponse
+		json.Unmarshal([]byte(readStr), &createConversationWssResponse)
+		wssUrl := createConversationWssResponse.WssUrl
+
+		//fmt.Println(wssUrl)
+
+		//wssu, err := url.Parse(wssUrl)
+
+		//fmt.Println(wssu.RawQuery)
+
+		wssSubProtocols := []string{"json.reliable.webpubsub.azure.v1"}
+
+		dialer := websocket.DefaultDialer
+		wssRequest, err := http.NewRequest("GET", wssUrl, nil)
+		if err != nil {
+			log.Fatal("Error creating request:", err)
+		}
+		wssRequest.Header.Add("Sec-WebSocket-Protocol", wssSubProtocols[0])
+
+		conn, _, err := dialer.Dial(wssUrl, http2.Header(wssRequest.Header))
+		if err != nil {
+			log.Fatal("Error dialing:", err)
+		}
+		defer conn.Close()
+
+		//log.Printf("WebSocket handshake completed with status code: %d", wssResp.StatusCode)
+
+		recvMsgCount := 0
+
+		for {
+			messageType, message, err := conn.ReadMessage()
 			if err != nil {
-				continue
+				log.Println("Error reading message:", err)
+				break // Exit the loop on error
 			}
-			if originalResponse.Error != nil {
-				c.JSON(500, gin.H{"error": originalResponse.Error})
+
+			// Handle different types of messages (Text, Binary, etc.)
+			switch messageType {
+			case websocket.TextMessage:
+				//log.Printf("Received Text Message: %s", message)
+				var wssConversationResponse chatgpt.WSSConversationResponse
+				json.Unmarshal(message, &wssConversationResponse)
+
+				sequenceId := wssConversationResponse.SequenceId
+
+				sequenceMsg := chatgpt.WSSSequenceAckMessage{
+					Type:       "sequenceAck",
+					SequenceId: sequenceId,
+				}
+				sequenceMsgStr, err := json.Marshal(sequenceMsg)
+
+				base64Body := wssConversationResponse.Data.Body
+				bodyByte, err := base64.StdEncoding.DecodeString(base64Body)
+
+				if err != nil {
+					return "", nil
+				}
+				body := string(bodyByte[:])
+
+				///
+				if !strings.Contains(body[:], "[DONE]") {
+					// Parse the line as JSON
+		
+					err = json.Unmarshal([]byte(body), &originalResponse)
+					if err != nil {
+						continue
+					}
+					if originalResponse.Error != nil {
+						c.JSON(500, gin.H{"error": originalResponse.Error})
+						return "", nil
+					}
+					if originalResponse.Message.Author.Role != "assistant" || originalResponse.Message.Content.Parts == nil {
+						continue
+					}
+					if originalResponse.Message.Metadata.MessageType != "next" && originalResponse.Message.Metadata.MessageType != "continue" || originalResponse.Message.EndTurn != nil {
+						continue
+					}
+					if (len(originalResponse.Message.Content.Parts) == 0 || originalResponse.Message.Content.Parts[0] == "") && !isRole {
+						continue
+					}
+					responseString := ConvertToString(&originalResponse, &previousText, isRole, id, model)
+					isRole = false
+					if stream {
+						_, err = c.Writer.WriteString(responseString)
+						if err != nil {
+							return "", nil
+						}
+					}
+					// Flush the response writer buffer to ensure that the client receives each line as it's written
+					c.Writer.Flush()
+		
+					if originalResponse.Message.Metadata.FinishDetails != nil {
+						if originalResponse.Message.Metadata.FinishDetails.Type == "max_tokens" {
+							maxTokens = true
+						}
+						finishReason = originalResponse.Message.Metadata.FinishDetails.Type
+					}
+		
+				} else {
+					
+					conn.WriteMessage(websocket.TextMessage, sequenceMsgStr)
+					conn.Close()
+
+					if stream {
+						if finishReason == "" {
+							finishReason = "stop"
+						}
+						finalLine := StopChunk(finishReason, id, model)
+						_, err := c.Writer.WriteString("data: " + finalLine.String() + "\n\n")
+						if err != nil {
+							return "", nil
+						}
+					}
+				}
+				///
+
+				recvMsgCount++
+
+				if recvMsgCount > 10 {
+					conn.WriteMessage(websocket.TextMessage, sequenceMsgStr)
+				}
+			case websocket.BinaryMessage:
+				//log.Printf("Received Binary Message: %d bytes", len(message))
+			default:
+				//log.Printf("Received Other Message Type: %d", messageType)
+			}
+		}
+	} else {
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
 				return "", nil
 			}
-			if originalResponse.Message.Author.Role != "assistant" || originalResponse.Message.Content.Parts == nil {
+			if len(line) < 6 {
 				continue
 			}
-			if originalResponse.Message.Metadata.MessageType != "next" && originalResponse.Message.Metadata.MessageType != "continue" || originalResponse.Message.EndTurn != nil {
-				continue
-			}
-			if (len(originalResponse.Message.Content.Parts) == 0 || originalResponse.Message.Content.Parts[0] == "") && !isRole {
-				continue
-			}
-			responseString := ConvertToString(&originalResponse, &previousText, isRole, id, model)
-			isRole = false
-			if stream {
-				_, err = c.Writer.WriteString(responseString)
+			// Remove "data: " from the beginning of the line
+			line = line[6:]
+			// Check if line starts with [DONE]
+			if !strings.HasPrefix(line, "[DONE]") {
+				// Parse the line as JSON
+	
+				err = json.Unmarshal([]byte(line), &originalResponse)
 				if err != nil {
+					continue
+				}
+				if originalResponse.Error != nil {
+					c.JSON(500, gin.H{"error": originalResponse.Error})
 					return "", nil
 				}
-			}
-			// Flush the response writer buffer to ensure that the client receives each line as it's written
-			c.Writer.Flush()
-
-			if originalResponse.Message.Metadata.FinishDetails != nil {
-				if originalResponse.Message.Metadata.FinishDetails.Type == "max_tokens" {
-					maxTokens = true
+				if originalResponse.Message.Author.Role != "assistant" || originalResponse.Message.Content.Parts == nil {
+					continue
 				}
-				finishReason = originalResponse.Message.Metadata.FinishDetails.Type
-			}
-
-		} else {
-			if stream {
-				if finishReason == "" {
-					finishReason = "stop"
+				if originalResponse.Message.Metadata.MessageType != "next" && originalResponse.Message.Metadata.MessageType != "continue" || originalResponse.Message.EndTurn != nil {
+					continue
 				}
-				finalLine := StopChunk(finishReason, id, model)
-				_, err := c.Writer.WriteString("data: " + finalLine.String() + "\n\n")
-				if err != nil {
-					return "", nil
+				if (len(originalResponse.Message.Content.Parts) == 0 || originalResponse.Message.Content.Parts[0] == "") && !isRole {
+					continue
+				}
+				responseString := ConvertToString(&originalResponse, &previousText, isRole, id, model)
+				isRole = false
+				if stream {
+					_, err = c.Writer.WriteString(responseString)
+					if err != nil {
+						return "", nil
+					}
+				}
+				// Flush the response writer buffer to ensure that the client receives each line as it's written
+				c.Writer.Flush()
+	
+				if originalResponse.Message.Metadata.FinishDetails != nil {
+					if originalResponse.Message.Metadata.FinishDetails.Type == "max_tokens" {
+						maxTokens = true
+					}
+					finishReason = originalResponse.Message.Metadata.FinishDetails.Type
+				}
+	
+			} else {
+				if stream {
+					if finishReason == "" {
+						finishReason = "stop"
+					}
+					finalLine := StopChunk(finishReason, id, model)
+					_, err := c.Writer.WriteString("data: " + finalLine.String() + "\n\n")
+					if err != nil {
+						return "", nil
+					}
 				}
 			}
 		}
 	}
+	
 	if !maxTokens {
 		return previousText.Text, nil
 	}

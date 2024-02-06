@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/linweiyuan/go-chatgpt-api/api/chatgpt"
+	"github.com/maxduke/go-chatgpt-api/api/chatgpt"
 )
 
 type ChatCompletionChunk struct {
