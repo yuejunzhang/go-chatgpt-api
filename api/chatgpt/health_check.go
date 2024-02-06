@@ -8,7 +8,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	http "github.com/bogdanfinn/fhttp"
 
-	"github.com/linweiyuan/go-chatgpt-api/api"
+	"github.com/maxduke/go-chatgpt-api/api"
 	"github.com/linweiyuan/go-logger/logger"
 )
 

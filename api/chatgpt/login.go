@@ -5,7 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/xqdoo00o/OpenAIAuth/auth"
 
-	"github.com/linweiyuan/go-chatgpt-api/api"
+	"github.com/maxduke/go-chatgpt-api/api"
 )
 
 func Login(c *gin.Context) {
