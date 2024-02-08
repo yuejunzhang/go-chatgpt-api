@@ -79,6 +79,9 @@ func sendConversationRequest(c *gin.Context, request CreateConversationRequest) 
 	req.Header.Set("User-Agent", api.UserAgent)
 	req.Header.Set(api.AuthorizationHeader, api.GetAccessToken(c))
 	req.Header.Set("Accept", "text/event-stream")
+	if request.ArkoseToken != "" {
+		req.Header.Set("Openai-Sentinel-Arkose-Token", request.ArkoseToken)
+	}	
 	if api.PUID != "" {
 		req.Header.Set("Cookie", "_puid="+api.PUID)
 	}

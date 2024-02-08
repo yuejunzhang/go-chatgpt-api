@@ -205,6 +205,9 @@ func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationR
 	req.Header.Set("User-Agent", api.UserAgent)
 	req.Header.Set(api.AuthorizationHeader, accessToken)
 	req.Header.Set("Accept", "text/event-stream")
+	if request.ArkoseToken != "" {
+		req.Header.Set("Openai-Sentinel-Arkose-Token", request.ArkoseToken)
+	}
 	if api.PUID != "" {
 		req.Header.Set("Cookie", "_puid="+api.PUID)
 	}
