@@ -1,7 +1,12 @@
 # go-chatgpt-api
 
 # 此为个人维护的魔改版，相比原版，有以下改动/区别
+Docker image: maxduke/go-chatgpt-api
 
+## 20240314 imitate 重构
+ - 更新依赖 https://github.com/xqdoo00o/funcaptcha
+ - 移除环境变量 ENABLE_ARKOSE_3 , 程序将自动判断
+ - 尝试重构 imitate， 参照 https://github.com/xqdoo00o/ChatGPT-to-API
 ## 20240206 imitate 支持 WSS
 ## 20240205 尝试支持官网改动之后的WSS协议 （imitate未支持）
 参考 [32c0cf4b709ad3a7540f4a8ab0f7200c2ba92a9f](https://github.com/linweiyuan/go-chatgpt-api/commit/32c0cf4b709ad3a7540f4a8ab0f7200c2ba92a9f)

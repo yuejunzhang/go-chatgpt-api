@@ -11,15 +11,15 @@ require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/joho/godotenv v1.5.1
 	github.com/linweiyuan/go-logger v0.0.0-20230709142852-da1f090a7d4c
-	github.com/xqdoo00o/OpenAIAuth v0.0.0-20240301070231-007172f194ee
-	github.com/xqdoo00o/funcaptcha v0.0.0-20240301070104-d5964026df90
+	github.com/xqdoo00o/OpenAIAuth v0.0.0-20240313154058-7c1d960f325b
+	github.com/xqdoo00o/funcaptcha v0.0.0-20240313153914-4ab805804232
 )
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/bogdanfinn/utls v1.6.1 // indirect
-	github.com/bytedance/sonic v1.11.2 // indirect
+	github.com/bytedance/sonic v1.11.3 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
 	github.com/chenzhuoyu/iasm v0.9.1 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect

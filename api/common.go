@@ -13,6 +13,7 @@ import (
 	tls_client "github.com/bogdanfinn/tls-client"
 	"github.com/bogdanfinn/tls-client/profiles"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/xqdoo00o/OpenAIAuth/auth"
 	"github.com/xqdoo00o/funcaptcha"
 
@@ -50,12 +51,21 @@ const (
 	refreshPuidErrorMessage = "failed to refresh PUID"
 )
 
+type ConnInfo struct {
+	Conn   *websocket.Conn
+	Uuid   string
+	Expire time.Time
+	Ticker *time.Ticker
+	Lock   bool
+}
+
 var (
 	Client       tls_client.HttpClient
 	ArkoseClient tls_client.HttpClient
 	PUID         string
 	ProxyUrl     string
 	IMITATE_accessToken string
+	ConnPool = map[string][]*ConnInfo{}
 )
 
 type LoginInfo struct {

@@ -7,6 +7,10 @@ on:
         description: "Branch to build from"
         required: false
         default: 'main'
+      image_tag:
+        description: "Image tag"
+        required: false
+        default: 'latest'
 
 env:
   PLATFORMS: ${{ vars.PLATFORMS || 'linux/amd64,linux/arm64' }}
@@ -49,7 +53,7 @@ jobs:
           context: .
           platforms: ${{ env.PLATFORMS }}
           push: true
-          tags: ${{ github.actor }}/go-chatgpt-api
+          tags: ${{ github.actor }}/go-chatgpt-api:${{ github.event.inputs.image_tag }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
 
@@ -68,6 +72,6 @@ jobs:
           context: .
           platforms: ${{ env.PLATFORMS }}
           push: true
-          tags: ghcr.io/${{ github.actor }}/go-chatgpt-api
+          tags: ghcr.io/${{ github.actor }}/go-chatgpt-api:${{ github.event.inputs.image_tag }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max

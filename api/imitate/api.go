@@ -8,18 +8,18 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"io"
-	"log"
-	http2 "net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 
 	http "github.com/bogdanfinn/fhttp"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/maxduke/go-chatgpt-api/api"
-	"github.com/maxduke/go-chatgpt-api/api/chatgpt"
+	chatgpt "github.com/maxduke/go-chatgpt-api/api/chatgpt"
 	"github.com/linweiyuan/go-logger/logger"
 )
 
@@ -33,8 +33,8 @@ func init() {
 }
 
 func CreateChatCompletions(c *gin.Context) {
-	var originalRequest APIRequest
-	err := c.BindJSON(&originalRequest)
+	var original_request APIRequest
+	err := c.BindJSON(&original_request)
 	if err != nil {
 		c.JSON(400, gin.H{"error": gin.H{
 			"message": "Request must be proper JSON",
@@ -71,10 +71,17 @@ func CreateChatCompletions(c *gin.Context) {
 		return
 	}
 
-	// 将聊天请求转换为ChatGPT请求。
-	translatedRequest, model := convertAPIRequest(originalRequest)
+	uid := uuid.NewString()
+	err = chatgpt.InitWSConn(token, uid)
+	if err != nil {
+		return
+	}
+	chat_require := chatgpt.CheckRequire(token)
 
-	response, done := sendConversationRequest(c, translatedRequest, token)
+	// Convert the chat request to a ChatGPT request
+	translated_request := convertAPIRequest(original_request, chat_require.Arkose.Required)
+
+	response, done := sendConversationRequest(c, translated_request, chat_require.Token)
 	if done {
 		return
 	}
@@ -90,26 +97,25 @@ func CreateChatCompletions(c *gin.Context) {
 		return
 	}
 
-	var fullResponse string
-
-	id := generateId()
+	var full_response string
 
 	for i := 3; i > 0; i-- {
-		var continueInfo *ContinueInfo
-		var responsePart string
-		var continueSignal string
-		responsePart, continueInfo = Handler(c, response, originalRequest.Stream, id, model)
-		fullResponse += responsePart
-		continueSignal = os.Getenv("CONTINUE_SIGNAL")
-		if continueInfo == nil || continueSignal == "" {
+		var continue_info *ContinueInfo
+		var response_part string
+		response_part, continue_info  = Handler(c, response, token, uid, original_request.Stream)
+		full_response += response_part
+		if continue_info == nil {
 			break
 		}
 		println("Continuing conversation")
-		translatedRequest.Messages = nil
-		translatedRequest.Action = "continue"
-		translatedRequest.ConversationID = &continueInfo.ConversationID
-		translatedRequest.ParentMessageID = continueInfo.ParentID
-		response, done = sendConversationRequest(c, translatedRequest, token)
+		translated_request.Messages = nil
+		translated_request.Action = "continue"
+		translated_request.ConversationID = continue_info.ConversationID
+		translated_request.ParentMessageID = continue_info.ParentID
+		if chat_require.Arkose.Required {
+			chatgpt.RenewTokenForRequest(&translated_request)
+		}
+		response, done = sendConversationRequest(c, translated_request, token)
 
 		if done {
 			return
@@ -131,11 +137,16 @@ func CreateChatCompletions(c *gin.Context) {
 		}
 	}
 
-	if !originalRequest.Stream {
-		c.JSON(200, newChatCompletion(fullResponse, model, id))
+	if c.Writer.Status() != 200 {
+		return
+	}
+	if !original_request.Stream {
+		c.JSON(200, newChatCompletion(full_response, translated_request.Model, uid))
 	} else {
 		c.String(200, "data: [DONE]\n\n")
 	}
+
+	chatgpt.UnlockSpecConn(token, uid)
 }
 
 func generateId() string {
@@ -146,46 +157,40 @@ func generateId() string {
 	return "chatcmpl-" + id
 }
 
-func convertAPIRequest(apiRequest APIRequest) (chatgpt.CreateConversationRequest, string) {
-	chatgptRequest := NewChatGPTRequest()
+func convertAPIRequest(api_request APIRequest, requireArk bool) (chatgpt.CreateConversationRequest) {
+	chatgpt_request := NewChatGPTRequest()
 
 	var api_version int
-	enable_arkose_3 := os.Getenv("ENABLE_ARKOSE_3")
-	var model = "gpt-3.5-turbo-0613"
-
-	if strings.HasPrefix(apiRequest.Model, "gpt-3.5") {
-		if enable_arkose_3 == "true" {
-			api_version = 3
-		}		
-		chatgptRequest.Model = "text-davinci-002-render-sha"
-	} else if strings.HasPrefix(apiRequest.Model, "gpt-4") {
+	if strings.HasPrefix(api_request.Model, "gpt-3.5") {
+		api_version = 3
+		chatgpt_request.Model = "text-davinci-002-render-sha"
+	} else if strings.HasPrefix(api_request.Model, "gpt-4") {
 		api_version = 4
-		chatgptRequest.Model = apiRequest.Model
-		model = "gpt-4-0613"
+		chatgpt_request.Model = api_request.Model
+		// Cover some models like gpt-4-32k
+		if len(api_request.Model) >= 7 && api_request.Model[6] >= 48 && api_request.Model[6] <= 57 {
+			chatgpt_request.Model = "gpt-4"
+		}
 	}
-
-	if api_version != 0 {
-		arkoseToken, err := api.GetArkoseToken(api_version)
+	if requireArk {
+		token, err := api.GetArkoseToken(api_version)
 		if err == nil {
-			chatgptRequest.ArkoseToken = arkoseToken
+			chatgpt_request.ArkoseToken = token
 		} else {
 			fmt.Println("Error getting Arkose token: ", err)
 		}
 	}
-
-	if apiRequest.PluginIDs != nil {
-		chatgptRequest.PluginIDs = apiRequest.PluginIDs
-		chatgptRequest.Model = "gpt-4-plugins"
+	if api_request.PluginIDs != nil {
+		chatgpt_request.PluginIDs = api_request.PluginIDs
+		chatgpt_request.Model = "gpt-4-plugins"
 	}
-
-	for _, apiMessage := range apiRequest.Messages {
-		if apiMessage.Role == "system" {
-			apiMessage.Role = "critic"
+	for _, api_message := range api_request.Messages {
+		if api_message.Role == "system" {
+			api_message.Role = "critic"
 		}
-		chatgptRequest.AddMessage(apiMessage.Role, apiMessage.Content)
+		chatgpt_request.AddMessage(api_message.Role, api_message.Content)
 	}
-
-	return chatgptRequest, model
+	return chatgpt_request
 }
 
 func NewChatGPTRequest() chatgpt.CreateConversationRequest {
@@ -231,8 +236,36 @@ func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationR
 	return resp, false
 }
 
-func Handler(c *gin.Context, response *http.Response, stream bool, id string, model string) (string, *ContinueInfo) {
-	maxTokens := false
+func GetImageSource(wg *sync.WaitGroup, url string, prompt string, token string, idx int, imgSource []string) {
+	defer wg.Done()
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return
+	}
+	// Clear cookies
+	if api.PUID != "" {
+		request.Header.Set("Cookie", "_puid="+api.PUID+";")
+	}
+	request.Header.Set("User-Agent", api.UserAgent)
+	request.Header.Set("Accept", "*/*")
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	response, err := api.Client.Do(request)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+	var file_info chatgpt.FileInfo
+	err = json.NewDecoder(response.Body).Decode(&file_info)
+	if err != nil || file_info.Status != "success" {
+		return
+	}
+	imgSource[idx] = "[![image](" + file_info.DownloadURL + " \"" + prompt + "\")](" + file_info.DownloadURL + ")"
+}
+
+func Handler(c *gin.Context, response *http.Response, token string, uuid string, stream bool) (string, *ContinueInfo) {
+	max_tokens := false
 
 	// Create a bufio.Reader from the response body
 	reader := bufio.NewReader(response.Body)
@@ -245,214 +278,209 @@ func Handler(c *gin.Context, response *http.Response, stream bool, id string, mo
 		// Response content type is application/json
 		c.Header("Content-Type", "application/json")
 	}
-	var finishReason string
-	var previousText StringStruct
-	var originalResponse ChatGPTResponse
+	var finish_reason string
+	var previous_text StringStruct
+	var original_response ChatGPTResponse
 	var isRole = true
+	var waitSource = false
+	var isEnd = false
+	var imgSource []string
+	var isWSS = false
+	var convId string
+	var respId string
+	var wssUrl string
+	var connInfo *api.ConnInfo
+	var wsSeq int
 
-	readStr, _ := reader.ReadString(' ')
-
-	if strings.Contains(readStr, "\"wss_url\"") {
-		var createConversationWssResponse chatgpt.CreateConversationWSSResponse
-		json.Unmarshal([]byte(readStr), &createConversationWssResponse)
-		wssUrl := createConversationWssResponse.WssUrl
-
-		//fmt.Println(wssUrl)
-
-		//wssu, err := url.Parse(wssUrl)
-
-		//fmt.Println(wssu.RawQuery)
-
-		wssSubProtocols := []string{"json.reliable.webpubsub.azure.v1"}
-
-		dialer := websocket.DefaultDialer
-		wssRequest, err := http.NewRequest("GET", wssUrl, nil)
-		if err != nil {
-			log.Fatal("Error creating request:", err)
+	if !strings.Contains(response.Header.Get("Content-Type"), "text/event-stream") {
+		isWSS = true
+		connInfo = chatgpt.FindSpecConn(token, uuid)
+		if connInfo.Conn == nil {
+			c.JSON(500, gin.H{"error": "No websocket connection"})
+			return "", nil
 		}
-		wssRequest.Header.Add("Sec-WebSocket-Protocol", wssSubProtocols[0])
-
-		conn, _, err := dialer.Dial(wssUrl, http2.Header(wssRequest.Header))
-		if err != nil {
-			log.Fatal("Error dialing:", err)
-		}
-		defer conn.Close()
-
-		//log.Printf("WebSocket handshake completed with status code: %d", wssResp.StatusCode)
-
-		recvMsgCount := 0
-
-		for {
-			messageType, message, err := conn.ReadMessage()
+		var wssResponse chatgpt.ChatGPTWSSResponse
+		json.NewDecoder(response.Body).Decode(&wssResponse)
+		wssUrl = wssResponse.WssUrl
+		respId = wssResponse.ResponseId
+		convId = wssResponse.ConversationId
+	}
+	for {
+		var line string
+		var err error
+		if isWSS {
+			var messageType int
+			var message []byte
+			messageType, message, err = connInfo.Conn.ReadMessage()
 			if err != nil {
-				log.Println("Error reading message:", err)
-				break // Exit the loop on error
-			}
-
-			// Handle different types of messages (Text, Binary, etc.)
-			switch messageType {
-			case websocket.TextMessage:
-				//log.Printf("Received Text Message: %s", message)
-				var wssConversationResponse chatgpt.WSSConversationResponse
-				json.Unmarshal(message, &wssConversationResponse)
-
-				sequenceId := wssConversationResponse.SequenceId
-
-				sequenceMsg := chatgpt.WSSSequenceAckMessage{
-					Type:       "sequenceAck",
-					SequenceId: sequenceId,
-				}
-				sequenceMsgStr, err := json.Marshal(sequenceMsg)
-
-				base64Body := wssConversationResponse.Data.Body
-				bodyByte, err := base64.StdEncoding.DecodeString(base64Body)
-
+				println(err.Error())
+				connInfo.Ticker.Stop()
+				connInfo.Conn.Close()
+				connInfo.Conn = nil
+				err := chatgpt.CreateWSConn(wssUrl, connInfo, 0)
 				if err != nil {
+					c.JSON(500, gin.H{"error": err.Error()})
 					return "", nil
 				}
-				body := string(bodyByte[:])
-
-				///
-				if !strings.Contains(body[:], "[DONE]") {
-					// Parse the line as JSON
-		
-					err = json.Unmarshal([]byte(body), &originalResponse)
-					if err != nil {
-						continue
-					}
-					if originalResponse.Error != nil {
-						c.JSON(500, gin.H{"error": originalResponse.Error})
-						return "", nil
-					}
-					if originalResponse.Message.Author.Role != "assistant" || originalResponse.Message.Content.Parts == nil {
-						continue
-					}
-					if originalResponse.Message.Metadata.MessageType != "next" && originalResponse.Message.Metadata.MessageType != "continue" || originalResponse.Message.EndTurn != nil {
-						continue
-					}
-					if (len(originalResponse.Message.Content.Parts) == 0 || originalResponse.Message.Content.Parts[0] == "") && !isRole {
-						continue
-					}
-					responseString := ConvertToString(&originalResponse, &previousText, isRole, id, model)
-					isRole = false
-					if stream {
-						_, err = c.Writer.WriteString(responseString)
-						if err != nil {
-							return "", nil
-						}
-					}
-					// Flush the response writer buffer to ensure that the client receives each line as it's written
-					c.Writer.Flush()
-		
-					if originalResponse.Message.Metadata.FinishDetails != nil {
-						if originalResponse.Message.Metadata.FinishDetails.Type == "max_tokens" {
-							maxTokens = true
-						}
-						finishReason = originalResponse.Message.Metadata.FinishDetails.Type
-					}
-		
-				} else {
-					
-					conn.WriteMessage(websocket.TextMessage, sequenceMsgStr)
-					conn.Close()
-
-					if stream {
-						if finishReason == "" {
-							finishReason = "stop"
-						}
-						finalLine := StopChunk(finishReason, id, model)
-						_, err := c.Writer.WriteString("data: " + finalLine.String() + "\n\n")
-						if err != nil {
-							return "", nil
-						}
-					}
-				}
-				///
-
-				recvMsgCount++
-
-				if recvMsgCount > 10 {
-					conn.WriteMessage(websocket.TextMessage, sequenceMsgStr)
-				}
-			case websocket.BinaryMessage:
-				//log.Printf("Received Binary Message: %d bytes", len(message))
-			default:
-				//log.Printf("Received Other Message Type: %d", messageType)
+				connInfo.Conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"sequenceAck\",\"sequenceId\":"+strconv.Itoa(wsSeq)+"}"))
+				continue
 			}
-		}
-	} else {
-		for {
-			line, err := reader.ReadString('\n')
+			if messageType == websocket.TextMessage {
+				var wssMsgResponse chatgpt.WSSMsgResponse
+				json.Unmarshal(message, &wssMsgResponse)
+				if wssMsgResponse.Data.ResponseId != respId {
+					continue
+				}
+				wsSeq = wssMsgResponse.SequenceId
+				if wsSeq%50 == 0 {
+					connInfo.Conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"sequenceAck\",\"sequenceId\":"+strconv.Itoa(wsSeq)+"}"))
+				}
+				base64Body := wssMsgResponse.Data.Body
+				bodyByte, err := base64.StdEncoding.DecodeString(base64Body)
+				if err != nil {
+					continue
+				}
+				line = string(bodyByte)
+			}
+		} else {
+			line, err = reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
 					break
 				}
 				return "", nil
 			}
-			if len(line) < 6 {
+		}
+		if len(line) < 6 {
+			continue
+		}
+		// Remove "data: " from the beginning of the line
+		line = line[6:]
+		// Check if line starts with [DONE]
+		if !strings.HasPrefix(line, "[DONE]") {
+			// Parse the line as JSON
+			err = json.Unmarshal([]byte(line), &original_response)
+			if err != nil {
 				continue
 			}
-			// Remove "data: " from the beginning of the line
-			line = line[6:]
-			// Check if line starts with [DONE]
-			if !strings.HasPrefix(line, "[DONE]") {
-				// Parse the line as JSON
-	
-				err = json.Unmarshal([]byte(line), &originalResponse)
-				if err != nil {
+			if original_response.Error != nil {
+				c.JSON(500, gin.H{"error": original_response.Error})
+				return "", nil
+			}
+			if original_response.ConversationID != convId {
+				if convId == "" {
+					convId = original_response.ConversationID
+				} else {
 					continue
 				}
-				if originalResponse.Error != nil {
-					c.JSON(500, gin.H{"error": originalResponse.Error})
+			}
+			if !(original_response.Message.Author.Role == "assistant" || (original_response.Message.Author.Role == "tool" && original_response.Message.Content.ContentType != "text")) || original_response.Message.Content.Parts == nil {
+				continue
+			}
+			if original_response.Message.Metadata.MessageType != "next" && original_response.Message.Metadata.MessageType != "continue" || !strings.HasSuffix(original_response.Message.Content.ContentType, "text") {
+				continue
+			}
+			if original_response.Message.EndTurn != nil {
+				if waitSource {
+					waitSource = false
+				}
+				isEnd = true
+			}
+			if len(original_response.Message.Metadata.Citations) != 0 {
+				r := []rune(original_response.Message.Content.Parts[0].(string))
+				if waitSource {
+					if string(r[len(r)-1:]) == "】" {
+						waitSource = false
+					} else {
+						continue
+					}
+				}
+				offset := 0
+				for i, citation := range original_response.Message.Metadata.Citations {
+					rl := len(r)
+					original_response.Message.Content.Parts[0] = string(r[:citation.StartIx+offset]) + "[^" + strconv.Itoa(i+1) + "^](" + citation.Metadata.URL + " \"" + citation.Metadata.Title + "\")" + string(r[citation.EndIx+offset:])
+					r = []rune(original_response.Message.Content.Parts[0].(string))
+					offset += len(r) - rl
+				}
+			} else if waitSource {
+				continue
+			}
+			response_string := ""
+			if original_response.Message.Recipient != "all" {
+				continue
+			}
+			if original_response.Message.Content.ContentType == "multimodal_text" {
+				apiUrl := "https://chat.openai.com/backend-api/files/"
+				FILES_REVERSE_PROXY := os.Getenv("FILES_REVERSE_PROXY")
+				if FILES_REVERSE_PROXY != "" {
+					apiUrl = FILES_REVERSE_PROXY
+				}
+				imgSource = make([]string, len(original_response.Message.Content.Parts))
+				var wg sync.WaitGroup
+				for index, part := range original_response.Message.Content.Parts {
+					jsonItem, _ := json.Marshal(part)
+					var dalle_content chatgpt.DalleContent
+					err = json.Unmarshal(jsonItem, &dalle_content)
+					if err != nil {
+						continue
+					}
+					url := apiUrl + strings.Split(dalle_content.AssetPointer, "//")[1] + "/download"
+					wg.Add(1)
+					go GetImageSource(&wg, url, dalle_content.Metadata.Dalle.Prompt, token, index, imgSource)
+				}
+				wg.Wait()
+				translated_response := NewChatCompletionChunk(strings.Join(imgSource, ""))
+				if isRole {
+					translated_response.Choices[0].Delta.Role = original_response.Message.Author.Role
+				}
+				response_string = "data: " + translated_response.String() + "\n\n"
+			}
+			if response_string == "" {
+				response_string = ConvertToString(&original_response, &previous_text, isRole)
+			}
+			if response_string == "" {
+				if isEnd {
+					goto endProcess
+				} else {
+					continue
+				}
+			}
+			if response_string == "【" {
+				waitSource = true
+				continue
+			}
+			isRole = false
+			if stream {
+				_, err = c.Writer.WriteString(response_string)
+				if err != nil {
 					return "", nil
 				}
-				if originalResponse.Message.Author.Role != "assistant" || originalResponse.Message.Content.Parts == nil {
-					continue
+			}
+		endProcess:
+			// Flush the response writer buffer to ensure that the client receives each line as it's written
+			c.Writer.Flush()
+
+			if original_response.Message.Metadata.FinishDetails != nil {
+				if original_response.Message.Metadata.FinishDetails.Type == "max_tokens" {
+					max_tokens = true
 				}
-				if originalResponse.Message.Metadata.MessageType != "next" && originalResponse.Message.Metadata.MessageType != "continue" || originalResponse.Message.EndTurn != nil {
-					continue
-				}
-				if (len(originalResponse.Message.Content.Parts) == 0 || originalResponse.Message.Content.Parts[0] == "") && !isRole {
-					continue
-				}
-				responseString := ConvertToString(&originalResponse, &previousText, isRole, id, model)
-				isRole = false
+				finish_reason = original_response.Message.Metadata.FinishDetails.Type
+			}
+			if isEnd {
 				if stream {
-					_, err = c.Writer.WriteString(responseString)
-					if err != nil {
-						return "", nil
-					}
+					final_line := StopChunk(finish_reason)
+					c.Writer.WriteString("data: " + final_line.String() + "\n\n")
 				}
-				// Flush the response writer buffer to ensure that the client receives each line as it's written
-				c.Writer.Flush()
-	
-				if originalResponse.Message.Metadata.FinishDetails != nil {
-					if originalResponse.Message.Metadata.FinishDetails.Type == "max_tokens" {
-						maxTokens = true
-					}
-					finishReason = originalResponse.Message.Metadata.FinishDetails.Type
-				}
-	
-			} else {
-				if stream {
-					if finishReason == "" {
-						finishReason = "stop"
-					}
-					finalLine := StopChunk(finishReason, id, model)
-					_, err := c.Writer.WriteString("data: " + finalLine.String() + "\n\n")
-					if err != nil {
-						return "", nil
-					}
-				}
+				break
 			}
 		}
 	}
-	
-	if !maxTokens {
-		return previousText.Text, nil
+	if !max_tokens {
+		return strings.Join(imgSource, "") + previous_text.Text, nil
 	}
-	return previousText.Text, &ContinueInfo{
-		ConversationID: originalResponse.ConversationID,
-		ParentID:       originalResponse.Message.ID,
+	return strings.Join(imgSource, "") + previous_text.Text, &ContinueInfo{
+		ConversationID: original_response.ConversationID,
+		ParentID:       original_response.Message.ID,
 	}
+
 }

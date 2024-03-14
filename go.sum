@@ -12,8 +12,8 @@ github.com/bogdanfinn/utls v1.6.1 h1:dKDYAcXEyFFJ3GaWaN89DEyjyRraD1qb4osdEK89ass
 github.com/bogdanfinn/utls v1.6.1/go.mod h1:VXIbRZaiY/wHZc6Hu+DZ4O2CgTzjhjCg/Ou3V4r/39Y=
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.10.0-rc/go.mod h1:ElCzW+ufi8qKqNW0FY314xriJhyJhuoJ3gFZdAHF7NM=
-github.com/bytedance/sonic v1.11.2 h1:ywfwo0a/3j9HR8wsYGWsIWl2mvRsI950HyoxiBERw5A=
-github.com/bytedance/sonic v1.11.2/go.mod h1:iZcSUejdk5aukTND/Eu/ivjQuEL0Cu9/rf50Hi0u/g4=
+github.com/bytedance/sonic v1.11.3 h1:jRN+yEjakWh8aK5FzrciUHG8OFXK+4/KrAX/ysEtHAA=
+github.com/bytedance/sonic v1.11.3/go.mod h1:iZcSUejdk5aukTND/Eu/ivjQuEL0Cu9/rf50Hi0u/g4=
 github.com/chenzhuoyu/base64x v0.0.0-20211019084208-fb5309c8db06/go.mod h1:DH46F32mSOjUmXrMHnKwZdA8wcEefY7UVqBKYGjpdQY=
 github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311/go.mod h1:b583jCggY9gE99b6G5LEC39OIiVsWj+R97kbl5odCEk=
 github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d h1:77cEq6EriyTZ0g/qfRdp61a3Uu/AWrgIq2s0ClJV1g0=
@@ -111,10 +111,10 @@ github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
-github.com/xqdoo00o/OpenAIAuth v0.0.0-20240301070231-007172f194ee h1:Ald3NUN3AsOBCVq6RPqRgA+CqdIJmwWf2pThvEki8mY=
-github.com/xqdoo00o/OpenAIAuth v0.0.0-20240301070231-007172f194ee/go.mod h1:bUigYMwg8sDm7TxlTC0NnddQNoQ0533hPsDtm1sVEnQ=
-github.com/xqdoo00o/funcaptcha v0.0.0-20240301070104-d5964026df90 h1:0x3KWoP9WZEw8Yjs6r2RPpbRGDnX6ePrRIHllsMxzRs=
-github.com/xqdoo00o/funcaptcha v0.0.0-20240301070104-d5964026df90/go.mod h1:7aCyoW5MHDUsoooMVLqKe0F7W9HMPUvDG3bXqw++8XA=
+github.com/xqdoo00o/OpenAIAuth v0.0.0-20240313154058-7c1d960f325b h1:G4c/3wohzOlj52zB2azRybu+YSIK5+Y/ISYGdu/x9b0=
+github.com/xqdoo00o/OpenAIAuth v0.0.0-20240313154058-7c1d960f325b/go.mod h1:ndt7iw1y9jcDPlpTECHJlqqgcTLrefcWjfGkYR2M0os=
+github.com/xqdoo00o/funcaptcha v0.0.0-20240313153914-4ab805804232 h1:K8+8YdWdDzmmhVqNflEXV4RLpZPf56wwxo0k0nAtQO4=
+github.com/xqdoo00o/funcaptcha v0.0.0-20240313153914-4ab805804232/go.mod h1:7aCyoW5MHDUsoooMVLqKe0F7W9HMPUvDG3bXqw++8XA=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 golang.org/x/arch v0.0.0-20210923205945-b76863e36670/go.mod h1:5om86z9Hs0C8fWVUuoMHwpExlXzs5Tkyp9hOrfG7pp8=
 golang.org/x/arch v0.7.0 h1:pskyeJh/3AmoQ8CPE95vxHLqp1G1GfGNXTmcl9NEKTc=
