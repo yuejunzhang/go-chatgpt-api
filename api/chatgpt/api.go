@@ -3,6 +3,7 @@ package chatgpt
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -11,8 +12,8 @@ import (
 	"log"
 	http2 "net/http"
 	//"net/url"
-	"os"
 	"strings"
+	"time"
 
 	http "github.com/bogdanfinn/fhttp"
 	"github.com/gin-gonic/gin"
@@ -24,15 +25,10 @@ import (
 func CreateConversation(c *gin.Context) {
 	var request CreateConversationRequest
 	var api_version int
-	enable_arkose_3 := os.Getenv("ENABLE_ARKOSE_3")
 
 	if err := c.BindJSON(&request); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, api.ReturnMessage(parseJsonErrorMessage))
 		return
-	}
-
-	if request.ConversationID == nil || *request.ConversationID == "" {
-		request.ConversationID = nil
 	}
 
 	if len(request.Messages) != 0 {
@@ -50,11 +46,18 @@ func CreateConversation(c *gin.Context) {
 
 	if strings.HasPrefix(request.Model, gpt4Model) {
 		api_version = 4
-	} else if enable_arkose_3 == "true" {
+	} else {
 		api_version = 3
 	}
 
-	if request.ArkoseToken == "" && api_version != 0 {
+	// get accessToken
+	authHeader := c.GetHeader(api.AuthorizationHeader)
+	if strings.HasPrefix(authHeader, "Bearer") {
+		authHeader = strings.Replace(authHeader, "Bearer ", "", 1)
+	}
+	chat_require := CheckRequire(authHeader)
+
+	if chat_require.Arkose.Required == true && request.ArkoseToken == "" {
 		arkoseToken, err := api.GetArkoseToken(api_version)
 		if err != nil || arkoseToken == "" {
 			c.AbortWithStatusJSON(http.StatusForbidden, api.ReturnMessage(err.Error()))
@@ -64,15 +67,15 @@ func CreateConversation(c *gin.Context) {
 		request.ArkoseToken = arkoseToken
 	}
 
-	resp, done := sendConversationRequest(c, request)
+	resp, done := sendConversationRequest(c, request, chat_require.Token)
 	if done {
 		return
 	}
 
-	handleConversationResponse(c, resp, request)
+	handleConversationResponse(c, resp, request, chat_require.Token)
 }
 
-func sendConversationRequest(c *gin.Context, request CreateConversationRequest) (*http.Response, bool) {
+func sendConversationRequest(c *gin.Context, request CreateConversationRequest, chat_token string) (*http.Response, bool) {
 	jsonBytes, _ := json.Marshal(request)
 	req, _ := http.NewRequest(http.MethodPost, api.ChatGPTApiUrlPrefix+"/backend-api/conversation", bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
@@ -81,7 +84,10 @@ func sendConversationRequest(c *gin.Context, request CreateConversationRequest) 
 	req.Header.Set("Accept", "text/event-stream")
 	if request.ArkoseToken != "" {
 		req.Header.Set("Openai-Sentinel-Arkose-Token", request.ArkoseToken)
-	}	
+	}
+	if chat_token != "" {
+		req.Header.Set("Openai-Sentinel-Chat-Requirements-Token", chat_token)
+	}
 	if api.PUID != "" {
 		req.Header.Set("Cookie", "_puid="+api.PUID)
 	}
@@ -138,7 +144,7 @@ func sendConversationRequest(c *gin.Context, request CreateConversationRequest) 
 	return resp, false
 }
 
-func handleConversationResponse(c *gin.Context, resp *http.Response, request CreateConversationRequest) {
+func handleConversationResponse(c *gin.Context, resp *http.Response, request CreateConversationRequest, chat_token string) {
 	c.Writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 
 	isMaxTokens := false
@@ -149,8 +155,8 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 	reader := bufio.NewReader(resp.Body)
 	readStr, _ := reader.ReadString(' ')
 
-	if strings.Contains(readStr, "\"wss_url\"") {
-		var createConversationWssResponse CreateConversationWSSResponse
+	if !strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream") {
+		var createConversationWssResponse ChatGPTWSSResponse
 		json.Unmarshal([]byte(readStr), &createConversationWssResponse)
 		wssUrl := createConversationWssResponse.WssUrl
 
@@ -190,7 +196,7 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 			switch messageType {
 			case websocket.TextMessage:
 				//log.Printf("Received Text Message: %s", message)
-				var wssConversationResponse WSSConversationResponse
+				var wssConversationResponse WSSMsgResponse
 				json.Unmarshal(message, &wssConversationResponse)
 
 				sequenceId := wssConversationResponse.SequenceId
@@ -281,13 +287,203 @@ func handleConversationResponse(c *gin.Context, resp *http.Response, request Cre
 
 			Action:          actionContinue,
 			ParentMessageID: continueParentMessageID,
-			ConversationID:  &continueConversationID,
+			ConversationID:  continueConversationID,
 		}
-		resp, done := sendConversationRequest(c, continueConversationRequest)
+		resp, done := sendConversationRequest(c, continueConversationRequest, chat_token)
 		if done {
 			return
 		}
 
-		handleConversationResponse(c, resp, continueConversationRequest)
+		handleConversationResponse(c, resp, continueConversationRequest, chat_token)
+	}
+}
+
+func getWSURL(token string, retry int) (string, error) {
+	request, err := http.NewRequest(http.MethodPost, "https://chat.openai.com/backend-api/register-websocket", nil)
+	if err != nil {
+		return "", err
+	}
+	request.Header.Set("User-Agent", api.UserAgent)
+	request.Header.Set("Accept", "*/*")
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	response, err := api.Client.Do(request)
+	if err != nil {
+		if retry > 3 {
+			return "", err
+		}
+		time.Sleep(time.Second) // wait 1s to get ws url
+		return getWSURL(token, retry+1)
+	}
+	defer response.Body.Close()
+	var WSSResp ChatGPTWSSResponse
+	err = json.NewDecoder(response.Body).Decode(&WSSResp)
+	if err != nil {
+		return "", err
+	}
+	return WSSResp.WssUrl, nil
+}
+
+func CreateWSConn(url string, connInfo *api.ConnInfo, retry int) error {
+	header := make(http2.Header)
+	header.Add("Sec-WebSocket-Protocol", "json.reliable.webpubsub.azure.v1")
+	dialer := websocket.Dialer{
+		Proxy:             http2.ProxyFromEnvironment,
+		HandshakeTimeout:  45 * time.Second,
+		EnableCompression: true,
+	}
+	conn, _, err := dialer.Dial(url, header)
+	if err != nil {
+		if retry > 3 {
+			return err
+		}
+		time.Sleep(time.Second) // wait 1s to recreate w
+		return CreateWSConn(url, connInfo, retry+1)
+	}
+	connInfo.Conn = conn
+	connInfo.Expire = time.Now().Add(time.Minute * 30)
+	ticker := time.NewTicker(time.Second * 8)
+	connInfo.Ticker = ticker
+	go func(ticker *time.Ticker) {
+		defer ticker.Stop()
+		for {
+			<-ticker.C
+			if err := connInfo.Conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+				connInfo.Conn.Close()
+				connInfo.Conn = nil
+				break
+			}
+		}
+	}(ticker)
+	return nil
+}
+
+func findAvailConn(token string, uuid string) *api.ConnInfo {
+	for _, value := range api.ConnPool[token] {
+		if !value.Lock {
+			value.Lock = true
+			value.Uuid = uuid
+			return value
+		}
+	}
+	newConnInfo := api.ConnInfo{Uuid: uuid, Lock: true}
+	api.ConnPool[token] = append(api.ConnPool[token], &newConnInfo)
+	return &newConnInfo
+}
+
+func FindSpecConn(token string, uuid string) *api.ConnInfo {
+	for _, value := range api.ConnPool[token] {
+		if value.Uuid == uuid {
+			return value
+		}
+	}
+	return &api.ConnInfo{}
+}
+
+func UnlockSpecConn(token string, uuid string) {
+	for _, value := range api.ConnPool[token] {
+		if value.Uuid == uuid {
+			value.Lock = false
+		}
+	}
+}
+
+func InitWSConn(token string, uuid string) error {
+	connInfo := findAvailConn(token, uuid)
+	conn := connInfo.Conn
+	isExpired := connInfo.Expire.IsZero() || time.Now().After(connInfo.Expire)
+	if conn == nil || isExpired {
+		if conn != nil {
+			connInfo.Ticker.Stop()
+			conn.Close()
+			connInfo.Conn = nil
+		}
+		wssURL, err := getWSURL(token, 0)
+		if err != nil {
+			return err
+		}
+		CreateWSConn(wssURL, connInfo, 0)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Millisecond*100)
+		go func() {
+			defer cancelFunc()
+			for {
+				_, _, err := conn.NextReader()
+				if err != nil {
+					break
+				}
+				if ctx.Err() != nil {
+					break
+				}
+			}
+		}()
+		<-ctx.Done()
+		err := ctx.Err()
+		if err != nil {
+			switch err {
+			case context.Canceled:
+				connInfo.Ticker.Stop()
+				conn.Close()
+				connInfo.Conn = nil
+				connInfo.Lock = false
+				return InitWSConn(token, uuid)
+			case context.DeadlineExceeded:
+				return nil
+			default:
+				return nil
+			}
+		}
+		return nil
+	}
+}
+
+func CheckRequire(access_token string) *ChatRequire {
+	apiUrl := "https://chat.openai.com/backend-api/sentinel/chat-requirements"
+
+	request, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer([]byte(`{"conversation_mode_kind":"primary_assistant"}`)))
+	if err != nil {
+		return nil
+	}
+	if api.PUID != "" {
+		request.Header.Set("Cookie", "_puid="+api.PUID+";")
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("User-Agent", api.UserAgent)
+	if access_token != "" {
+		request.Header.Set("Authorization", "Bearer "+access_token)
+	}
+	if err != nil {
+		return nil
+	}
+	response, err := api.Client.Do(request)
+	if err != nil {
+		return nil
+	}
+	defer response.Body.Close()
+	var require ChatRequire
+	err = json.NewDecoder(response.Body).Decode(&require)
+	if err != nil {
+		return nil
+	}
+	return &require
+}
+
+func RenewTokenForRequest(request *CreateConversationRequest) {
+	var api_version int
+	if strings.HasPrefix(request.Model, "gpt-4") {
+		api_version = 4
+	} else {
+		api_version = 3
+	}
+	token, err := api.GetArkoseToken(api_version)
+	if err == nil {
+		request.ArkoseToken = token
+	} else {
+		fmt.Println("Error getting Arkose token: ", err)
 	}
 }

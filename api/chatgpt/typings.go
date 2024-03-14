@@ -8,8 +8,8 @@ type CreateConversationRequest struct {
 	Action                     string    `json:"action"`
 	Messages                   []Message `json:"messages"`
 	Model                      string    `json:"model"`
-	ParentMessageID            string    `json:"parent_message_id"`
-	ConversationID             *string   `json:"conversation_id"`
+	ParentMessageID            string    `json:"parent_message_id,omitempty"`
+	ConversationID             string    `json:"conversation_id,omitempty"`
 	PluginIDs                  []string  `json:"plugin_ids"`
 	TimezoneOffsetMin          int       `json:"timezone_offset_min"`
 	ArkoseToken                string    `json:"arkose_token"`
@@ -95,18 +95,18 @@ type GetModelsResponse struct {
 	} `json:"categories"`
 }
 
-type CreateConversationWSSResponse struct {
+type ChatGPTWSSResponse struct {
 	WssUrl         string `json:"wss_url"`
-	ConversationId string `json:"conversation_id"`
-	ResponseId     string `json:"response_id"`
+	ConversationId string `json:"conversation_id,omitempty"`
+	ResponseId     string `json:"response_id,omitempty"`
 }
 
-type WSSConversationResponse struct {
-	SequenceId int                         `json:"sequenceId"`
-	Type       string                      `json:"type"`
-	From       string                      `json:"from"`
-	DataType   string                      `json:"dataType"`
-	Data       WSSConversationResponseData `json:"data"`
+type WSSMsgResponse struct {
+	SequenceId int                `json:"sequenceId"`
+	Type       string             `json:"type"`
+	From       string             `json:"from"`
+	DataType   string             `json:"dataType"`
+	Data       WSSMsgResponseData `json:"data"`
 }
 
 type WSSSequenceAckMessage struct {
@@ -114,10 +114,32 @@ type WSSSequenceAckMessage struct {
 	SequenceId int    `json:"sequenceId"`
 }
 
-type WSSConversationResponseData struct {
+type WSSMsgResponseData struct {
 	Type           string `json:"type"`
 	Body           string `json:"body"`
 	MoreBody       bool   `json:"more_body"`
 	ResponseId     string `json:"response_id"`
 	ConversationId string `json:"conversation_id"`
+}
+
+type ChatRequire struct {
+	Token  string `json:"token"`
+	Arkose struct {
+		Required bool   `json:"required"`
+		DX       string `json:"dx,omitempty"`
+	} `json:"arkose"`
+}
+
+type FileInfo struct {
+	DownloadURL string `json:"download_url"`
+	Status      string `json:"status"`
+}
+
+type DalleContent struct {
+	AssetPointer string `json:"asset_pointer"`
+	Metadata     struct {
+		Dalle struct {
+			Prompt string `json:"prompt"`
+		} `json:"dalle"`
+	} `json:"metadata"`
 }
