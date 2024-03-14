@@ -74,7 +74,6 @@ func CreateChatCompletions(c *gin.Context) {
 	uid := uuid.NewString()
 	err = chatgpt.InitWSConn(token, uid)
 	if err != nil {
-		logger.Error(fmt.Sprintf("ERROR in InitWSConn"))
 		return
 	}
 	chat_require := chatgpt.CheckRequire(token)
@@ -82,10 +81,7 @@ func CreateChatCompletions(c *gin.Context) {
 	// Convert the chat request to a ChatGPT request
 	translated_request := convertAPIRequest(original_request, chat_require.Arkose.Required)
 
-	logger.Info(fmt.Sprintf("after convertAPIRequest"))
-
-	response, done := sendConversationRequest(c, translated_request, chat_require.Token)
-	logger.Info(fmt.Sprintf("after sendConversationRequest"))
+	response, done := sendConversationRequest(c, translated_request, token)
 	if done {
 		return
 	}
