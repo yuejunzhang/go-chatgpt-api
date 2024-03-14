@@ -50,7 +50,12 @@ func CreateConversation(c *gin.Context) {
 		api_version = 3
 	}
 
-	chat_require := CheckRequire(api.GetAccessToken(c))
+	// get accessToken
+	authHeader := c.GetHeader(api.AuthorizationHeader)
+	if strings.HasPrefix(authHeader, "Bearer") {
+		authHeader = strings.Replace(authHeader, "Bearer ", "", 1)
+	}
+	chat_require := CheckRequire(authHeader)
 
 	if chat_require.Arkose.Required == true && request.ArkoseToken == "" {
 		arkoseToken, err := api.GetArkoseToken(api_version)
