@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	http "github.com/bogdanfinn/fhttp"
 	"github.com/gin-gonic/gin"
@@ -72,11 +73,26 @@ func CreateChatCompletions(c *gin.Context) {
 	}
 
 	uid := uuid.NewString()
-	err = chatgpt.InitWSConn(token, uid)
+	var chat_require *chatgpt.ChatRequire
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		err = chatgpt.InitWSConn(token, uid)
+	}()
+	go func() {
+		defer wg.Done()
+		chat_require = chatgpt.CheckRequire(token)
+	}()
+	wg.Wait()
 	if err != nil {
+		c.JSON(500, gin.H{"error": "unable to create ws tunnel"})
 		return
 	}
-	chat_require := chatgpt.CheckRequire(token)
+	if chat_require == nil {
+		c.JSON(500, gin.H{"error": "unable to check chat requirement"})
+		return
+	}
 
 	// Convert the chat request to a ChatGPT request
 	translated_request := convertAPIRequest(original_request, chat_require.Arkose.Required)
@@ -291,6 +307,8 @@ func Handler(c *gin.Context, response *http.Response, token string, uuid string,
 	var wssUrl string
 	var connInfo *api.ConnInfo
 	var wsSeq int
+	var isWSInterrupt bool = false
+	var interruptTimer *time.Timer
 
 	if !strings.Contains(response.Header.Get("Content-Type"), "text/event-stream") {
 		isWSS = true
@@ -311,9 +329,21 @@ func Handler(c *gin.Context, response *http.Response, token string, uuid string,
 		if isWSS {
 			var messageType int
 			var message []byte
+			if isWSInterrupt {
+				if interruptTimer == nil {
+					interruptTimer = time.NewTimer(10 * time.Second)
+				}
+				select {
+				case <-interruptTimer.C:
+					c.JSON(500, gin.H{"error": "WS interrupt & new WS timeout"})
+					return "", nil
+				default:
+					goto reader
+				}
+			}
+		reader:
 			messageType, message, err = connInfo.Conn.ReadMessage()
 			if err != nil {
-				println(err.Error())
 				connInfo.Ticker.Stop()
 				connInfo.Conn.Close()
 				connInfo.Conn = nil
@@ -322,6 +352,7 @@ func Handler(c *gin.Context, response *http.Response, token string, uuid string,
 					c.JSON(500, gin.H{"error": err.Error()})
 					return "", nil
 				}
+				isWSInterrupt = true
 				connInfo.Conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"sequenceAck\",\"sequenceId\":"+strconv.Itoa(wsSeq)+"}"))
 				continue
 			}
@@ -339,6 +370,10 @@ func Handler(c *gin.Context, response *http.Response, token string, uuid string,
 				bodyByte, err := base64.StdEncoding.DecodeString(base64Body)
 				if err != nil {
 					continue
+				}
+				if isWSInterrupt {
+					isWSInterrupt = false
+					interruptTimer.Stop()
 				}
 				line = string(bodyByte)
 			}

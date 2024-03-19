@@ -6,7 +6,7 @@ import (
 
 type CreateConversationRequest struct {
 	Action                     string    `json:"action"`
-	Messages                   []Message `json:"messages"`
+	Messages                   []Message `json:"messages,omitempty"`
 	Model                      string    `json:"model"`
 	ParentMessageID            string    `json:"parent_message_id,omitempty"`
 	ConversationID             string    `json:"conversation_id,omitempty"`
