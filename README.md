@@ -3,6 +3,7 @@
 # 此为个人维护的魔改版，相比原版，有以下改动/区别
 Docker image: maxduke/go-chatgpt-api
 
+## 20240320 fix 403 error
 ## 20240314 imitate 重构
  - 更新依赖 https://github.com/xqdoo00o/funcaptcha
  - 移除环境变量 ENABLE_ARKOSE_3 , 程序将自动判断

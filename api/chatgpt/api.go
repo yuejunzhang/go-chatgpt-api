@@ -89,7 +89,12 @@ func sendConversationRequest(c *gin.Context, request CreateConversationRequest, 
 		req.Header.Set("Openai-Sentinel-Chat-Requirements-Token", chat_token)
 	}
 	if api.PUID != "" {
-		req.Header.Set("Cookie", "_puid="+api.PUID)
+		req.Header.Set("Cookie", "_puid="+api.PUID+";")
+	}
+	req.Header.Set("Oai-Language", api.Language)
+	if api.OAIDID != "" {
+		req.Header.Set("Cookie", req.Header.Get("Cookie")+"oai-did="+api.OAIDID)
+		req.Header.Set("Oai-Device-Id", api.OAIDID)
 	}
 	resp, err := api.Client.Do(req)
 	if err != nil {
@@ -447,6 +452,11 @@ func CheckRequire(access_token string) *ChatRequire {
 	}
 	if api.PUID != "" {
 		request.Header.Set("Cookie", "_puid="+api.PUID+";")
+	}
+	request.Header.Set("Oai-Language", api.Language)
+	if api.OAIDID != "" {
+		request.Header.Set("Cookie", request.Header.Get("Cookie")+"oai-did="+api.OAIDID)
+		request.Header.Set("Oai-Device-Id", api.OAIDID)
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("User-Agent", api.UserAgent)
