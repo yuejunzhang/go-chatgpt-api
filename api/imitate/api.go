@@ -226,6 +226,7 @@ func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationR
 	req.Header.Set("User-Agent", api.UserAgent)
 	req.Header.Set(api.AuthorizationHeader, accessToken)
 	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
 	if request.ArkoseToken != "" {
 		req.Header.Set("Openai-Sentinel-Arkose-Token", request.ArkoseToken)
 	}
@@ -234,8 +235,8 @@ func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationR
 	}
 	if api.OAIDID != "" {
 		req.Header.Set("Oai-Device-Id", api.OAIDID)
+		req.Header.Set("Oai-Language", api.Language)
 	}
-	req.Header.Set("Oai-Language", api.Language)
 	resp, err := api.Client.Do(req)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, api.ReturnMessage(err.Error()))
@@ -268,10 +269,11 @@ func GetImageSource(wg *sync.WaitGroup, url string, prompt string, token string,
 	}
 	if api.OAIDID != "" {
 		request.Header.Set("Oai-Device-Id", api.OAIDID)
+		request.Header.Set("Oai-Language", api.Language)
 	}
-	request.Header.Set("Oai-Language", api.Language)
 	request.Header.Set("User-Agent", api.UserAgent)
 	request.Header.Set("Accept", "*/*")
+	request.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}

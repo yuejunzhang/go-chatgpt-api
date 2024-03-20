@@ -241,8 +241,8 @@ func setupIDs() {
 				PUID = puid
 
 				if oaidid == "" {
-					logger.Error(refreshOaididErrorMessage)
-					return
+					logger.Warn(refreshOaididErrorMessage)
+					//return
 				} else {
 					logger.Info(fmt.Sprintf("OAIDID is updated"))
 				}
@@ -342,7 +342,7 @@ func GetIDs(accessToken string) (string, string) {
 		logger.Error("GetIDs: PUID cookie not found")
 	}
 	if oaidid == "" {
-		logger.Error("GetIDs: OAI-DId cookie not found")
+		logger.Warn("GetIDs: OAI-DId cookie not found")
 	}
 	return puid,oaidid
 }
