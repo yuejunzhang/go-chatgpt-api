@@ -144,6 +144,7 @@ func Proxy(c *gin.Context) {
 	}
 	req.Header.Set("User-Agent", UserAgent)
 	req.Header.Set(AuthorizationHeader, GetAccessToken(c))
+	req.Header.Set("Oai-Language", Language)
 	resp, err := Client.Do(req)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, ReturnMessage(err.Error()))
