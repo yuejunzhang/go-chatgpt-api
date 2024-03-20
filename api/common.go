@@ -190,6 +190,7 @@ func setupIDs() {
 	username := os.Getenv("OPENAI_EMAIL")
 	password := os.Getenv("OPENAI_PASSWORD")
 	refreshtoken := os.Getenv("OPENAI_REFRESH_TOKEN")
+	OAIDID = os.Getenv("OPENAI_DEVICE_ID")
 	if username != "" && password != "" {
 		go func() {
 			for {
@@ -235,19 +236,17 @@ func setupIDs() {
 					logger.Error(refreshPuidErrorMessage)
 					return
 				} else {
+					PUID = puid
 					logger.Info(fmt.Sprintf("PUID is updated"))
-				}
-
-				PUID = puid
+				}				
 
 				if oaidid == "" {
 					logger.Warn(refreshOaididErrorMessage)
 					//return
 				} else {
+					OAIDID = oaidid
 					logger.Info(fmt.Sprintf("OAIDID is updated"))
-				}
-
-				OAIDID = oaidid
+				}				
 
 				// store IMITATE_accessToken
 				IMITATE_accessToken = accessToken

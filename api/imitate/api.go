@@ -231,9 +231,10 @@ func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationR
 		req.Header.Set("Openai-Sentinel-Arkose-Token", request.ArkoseToken)
 	}
 	if api.PUID != "" {
-		req.Header.Set("Cookie", "_puid="+api.PUID)
+		req.Header.Set("Cookie", "_puid="+api.PUID+";")
 	}
 	if api.OAIDID != "" {
+		req.Header.Set("Cookie", req.Header.Get("Cookie")+"oai-did="+api.OAIDID)
 		req.Header.Set("Oai-Device-Id", api.OAIDID)
 		req.Header.Set("Oai-Language", api.Language)
 	}
@@ -268,6 +269,7 @@ func GetImageSource(wg *sync.WaitGroup, url string, prompt string, token string,
 		request.Header.Set("Cookie", "_puid="+api.PUID+";")
 	}
 	if api.OAIDID != "" {
+		request.Header.Set("Cookie", request.Header.Get("Cookie")+"oai-did="+api.OAIDID)
 		request.Header.Set("Oai-Device-Id", api.OAIDID)
 		request.Header.Set("Oai-Language", api.Language)
 	}
