@@ -11,7 +11,7 @@ require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/joho/godotenv v1.5.1
 	github.com/linweiyuan/go-logger v0.0.0-20230709142852-da1f090a7d4c
-	github.com/xqdoo00o/OpenAIAuth v0.0.0-20240313154058-7c1d960f325b
+	github.com/xqdoo00o/OpenAIAuth v0.0.0-20240320132013-15a383f3e0fd
 	github.com/xqdoo00o/funcaptcha v0.0.0-20240313153914-4ab805804232
 )
 
@@ -37,7 +37,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
 	github.com/quic-go/quic-go v0.42.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect

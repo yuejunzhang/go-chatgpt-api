@@ -82,7 +82,6 @@ func sendConversationRequest(c *gin.Context, request CreateConversationRequest, 
 	req.Header.Set("User-Agent", api.UserAgent)
 	req.Header.Set(api.AuthorizationHeader, api.GetAccessToken(c))
 	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
 	if request.ArkoseToken != "" {
 		req.Header.Set("Openai-Sentinel-Arkose-Token", request.ArkoseToken)
 	}
@@ -92,10 +91,10 @@ func sendConversationRequest(c *gin.Context, request CreateConversationRequest, 
 	if api.PUID != "" {
 		req.Header.Set("Cookie", "_puid="+api.PUID+";")
 	}
+	req.Header.Set("Oai-Language", api.Language)
 	if api.OAIDID != "" {
 		req.Header.Set("Cookie", req.Header.Get("Cookie")+"oai-did="+api.OAIDID)
 		req.Header.Set("Oai-Device-Id", api.OAIDID)
-		req.Header.Set("Oai-Language", api.Language)
 	}
 	resp, err := api.Client.Do(req)
 	if err != nil {
@@ -454,12 +453,11 @@ func CheckRequire(access_token string) *ChatRequire {
 	if api.PUID != "" {
 		request.Header.Set("Cookie", "_puid="+api.PUID+";")
 	}
+	request.Header.Set("Oai-Language", api.Language)
 	if api.OAIDID != "" {
 		request.Header.Set("Cookie", request.Header.Get("Cookie")+"oai-did="+api.OAIDID)
 		request.Header.Set("Oai-Device-Id", api.OAIDID)
-		request.Header.Set("Oai-Language", api.Language)
 	}
-	request.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("User-Agent", api.UserAgent)
 	if access_token != "" {
