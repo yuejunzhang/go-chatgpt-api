@@ -232,6 +232,10 @@ func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationR
 	if api.PUID != "" {
 		req.Header.Set("Cookie", "_puid="+api.PUID)
 	}
+	if api.OAIDID != "" {
+		req.Header.Set("Oai-Device-Id", api.OAIDID)
+	}
+	req.Header.Set("Oai-Language", api.Language)
 	resp, err := api.Client.Do(req)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, api.ReturnMessage(err.Error()))
@@ -262,6 +266,10 @@ func GetImageSource(wg *sync.WaitGroup, url string, prompt string, token string,
 	if api.PUID != "" {
 		request.Header.Set("Cookie", "_puid="+api.PUID+";")
 	}
+	if api.OAIDID != "" {
+		request.Header.Set("Oai-Device-Id", api.OAIDID)
+	}
+	request.Header.Set("Oai-Language", api.Language)
 	request.Header.Set("User-Agent", api.UserAgent)
 	request.Header.Set("Accept", "*/*")
 	if token != "" {

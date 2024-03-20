@@ -49,6 +49,9 @@ const (
 	ReadyHint = "service go-chatgpt-api is ready"
 
 	refreshPuidErrorMessage = "failed to refresh PUID"
+	refreshOaididErrorMessage = "failed to refresh oai-did"
+
+	Language = "en-US"
 )
 
 type ConnInfo struct {
@@ -63,6 +66,7 @@ var (
 	Client       tls_client.HttpClient
 	ArkoseClient tls_client.HttpClient
 	PUID         string
+	OAIDID       string
 	ProxyUrl     string
 	IMITATE_accessToken string
 	ConnPool = map[string][]*ConnInfo{}
@@ -90,7 +94,7 @@ func init() {
 	}...)
 	ArkoseClient = getHttpClient()
 
-	setupPUID()
+	setupIDs()
 }
 
 func NewHttpClient() tls_client.HttpClient {
@@ -182,7 +186,7 @@ func GetArkoseToken(api_version int) (string, error) {
 	return funcaptcha.GetOpenAIToken(api_version, PUID, ProxyUrl)
 }
 
-func setupPUID() {
+func setupIDs() {
 	username := os.Getenv("OPENAI_EMAIL")
 	password := os.Getenv("OPENAI_PASSWORD")
 	refreshtoken := os.Getenv("OPENAI_REFRESH_TOKEN")
@@ -226,15 +230,24 @@ func setupPUID() {
 					logger.Info(fmt.Sprintf("accessToken is updated"))
 				}				
 
-				puid := GetPUID(accessToken)
+				puid, oaidid := GetIDs(accessToken)
 				if puid == "" {
 					logger.Error(refreshPuidErrorMessage)
 					return
 				} else {
 					logger.Info(fmt.Sprintf("PUID is updated"))
-				}				
+				}
 
 				PUID = puid
+
+				if oaidid == "" {
+					logger.Error(refreshOaididErrorMessage)
+					return
+				} else {
+					logger.Info(fmt.Sprintf("OAIDID is updated"))
+				}
+
+				OAIDID = oaidid
 
 				// store IMITATE_accessToken
 				IMITATE_accessToken = accessToken
@@ -287,11 +300,13 @@ func RefreshAccessToken(refreshToken string) string {
 	return result["access_token"].(string)
 }
 
-func GetPUID(accessToken string) string {
+func GetIDs(accessToken string) (string, string) {
+	var puid string
+	var oaidid string
 	// Check if user has access token
 	if accessToken == "" {
-		logger.Error("GetPUID: Missing access token")
-		return ""
+		logger.Error("GetIDs: Missing access token")
+		return "", ""
 	}
 	// Make request to https://chat.openai.com/backend-api/models
 	req, _ := http.NewRequest("GET", "https://chat.openai.com/backend-api/models?history_and_training_disabled=false", nil)
@@ -301,21 +316,33 @@ func GetPUID(accessToken string) string {
 
 	resp, err := NewHttpClient().Do(req)
 	if err != nil {
-		logger.Error("GetPUID: Missing access token")
-		return ""
+		logger.Error("GetIDs: Missing access token")
+		return "", ""
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		logger.Error(fmt.Sprintf("GetPUID: Server responded with status code: %d", resp.StatusCode))
-		return ""
+		logger.Error(fmt.Sprintf("GetIDs: Server responded with status code: %d", resp.StatusCode))
+		return "", ""
 	}
 	// Find `_puid` cookie in response
 	for _, cookie := range resp.Cookies() {
 		if cookie.Name == "_puid" {
-			return cookie.Value
+			puid = cookie.Value
+			break
 		}
 	}
-	// If cookie not found, return error
-	logger.Error("GetPUID: PUID cookie not found")
-	return ""
+	// Find `oai-did` cookie in response
+	for _, cookie := range resp.Cookies() {
+		if cookie.Name == "oai-did" {
+			oaidid = cookie.Value
+			break
+		}
+	}
+	if puid == "" {
+		logger.Error("GetIDs: PUID cookie not found")
+	}
+	if oaidid == "" {
+		logger.Error("GetIDs: OAI-DId cookie not found")
+	}
+	return puid,oaidid
 }
