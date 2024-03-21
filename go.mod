@@ -11,7 +11,7 @@ require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/joho/godotenv v1.5.1
 	github.com/linweiyuan/go-logger v0.0.0-20230709142852-da1f090a7d4c
-	github.com/xqdoo00o/OpenAIAuth v0.0.0-20240320132013-15a383f3e0fd
+	github.com/xqdoo00o/OpenAIAuth v0.0.0-20240320160511-93065690aa0e
 	github.com/xqdoo00o/funcaptcha v0.0.0-20240313153914-4ab805804232
 )
 
