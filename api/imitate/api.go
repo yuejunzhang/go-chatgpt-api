@@ -97,7 +97,7 @@ func CreateChatCompletions(c *gin.Context) {
 	// Convert the chat request to a ChatGPT request
 	translated_request := convertAPIRequest(original_request, chat_require.Arkose.Required)
 
-	response, done := sendConversationRequest(c, translated_request, token)
+	response, done := sendConversationRequest(c, translated_request, token, chat_require.Token)
 	if done {
 		return
 	}
@@ -219,7 +219,7 @@ func NewChatGPTRequest() chatgpt.CreateConversationRequest {
 	}
 }
 
-func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationRequest, accessToken string) (*http.Response, bool) {
+func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationRequest, accessToken string, chat_token string) (*http.Response, bool) {
 	jsonBytes, _ := json.Marshal(request)
 	req, _ := http.NewRequest(http.MethodPost, api.ChatGPTApiUrlPrefix+"/backend-api/conversation", bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
@@ -228,6 +228,9 @@ func sendConversationRequest(c *gin.Context, request chatgpt.CreateConversationR
 	req.Header.Set("Accept", "text/event-stream")
 	if request.ArkoseToken != "" {
 		req.Header.Set("Openai-Sentinel-Arkose-Token", request.ArkoseToken)
+	}
+	if chat_token != "" {
+		req.Header.Set("Openai-Sentinel-Chat-Requirements-Token", chat_token)
 	}
 	if api.PUID != "" {
 		req.Header.Set("Cookie", "_puid="+api.PUID+";")
