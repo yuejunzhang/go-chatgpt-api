@@ -131,7 +131,7 @@ func CreateChatCompletions(c *gin.Context) {
 		if chat_require.Arkose.Required {
 			chatgpt.RenewTokenForRequest(&translated_request)
 		}
-		response, done = sendConversationRequest(c, translated_request, token)
+		response, done = sendConversationRequest(c, translated_request, token, chat_require.Token)
 
 		if done {
 			return
