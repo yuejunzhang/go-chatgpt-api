@@ -7,16 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"io"
 	"log"
 	http2 "net/http"
-	//"net/url"
 	"strings"
 	"time"
 
 	http "github.com/bogdanfinn/fhttp"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 
 	"github.com/maxduke/go-chatgpt-api/api"
 	"github.com/linweiyuan/go-logger/logger"
@@ -421,9 +420,7 @@ func InitWSConn(token string, uuid string) error {
 }
 
 func CheckRequire(access_token string) *ChatRequire {
-	apiUrl := "https://chat.openai.com/backend-api/sentinel/chat-requirements"
-
-	request, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer([]byte(`{"conversation_mode_kind":"primary_assistant"}`)))
+	request, err := http.NewRequest(http.MethodPost, "https://chat.openai.com/backend-api/sentinel/chat-requirements", bytes.NewBuffer([]byte(`{"conversation_mode_kind":"primary_assistant"}`)))
 	if err != nil {
 		return nil
 	}
