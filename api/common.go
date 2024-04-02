@@ -234,8 +234,7 @@ func setupIDs() {
 
 				puid, oaidid := GetIDs(accessToken)
 				if puid == "" {
-					logger.Error(refreshPuidErrorMessage)
-					return
+					logger.Warn(refreshPuidErrorMessage)
 				} else {
 					PUID = puid
 					logger.Info(fmt.Sprintf("PUID is updated"))
